@@ -208,12 +208,12 @@ class PointCloud:
 
         return np.array([x2d, y2d]).T
 
-    def get_spherical_coord(self, lidar2camera=1):
+    def get_spherical_coord(self, lidar2camera=True):
         """ Get coordinates from 3D LiDAR points onto the unit sphere.
             :param: lidar2camera: flag to transform LiDAR points to camera reference system.
         """
 
-        if lidar2camera == 1:
+        if lidar2camera == True:
             # Transform to camera 3D coordinates
             self.transform_lidar_to_camera()
 
@@ -337,7 +337,7 @@ class Visualizer(PointCloud):
                          'r', linewidth=1)
             if self.camera_corners is not None:
                 ccorners = PointCloud(self.camera_corners, self.image)
-                ccorners.get_spherical_coord(0)
+                ccorners.get_spherical_coord()
                 lidar_proj.sphere_coord = ccorners.spherical_coord
                 lidar_proj.lidar_projection(pixel_points=0)
                 plt.scatter(x=lidar_proj.eqr_coord[0], y=lidar_proj.eqr_coord[1], c='g', s=5)
