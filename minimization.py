@@ -103,7 +103,7 @@ def ineq6(unknowns):
     return gamma + 180
 
 
-def get_translation_parameters(corners3d, corners2d, method, plot=False):
+def get_transformation_parameters(corners3d, corners2d, method, plot=False):
     constraints = [{'type': 'ineq', 'fun': ineq1},
                    {'type': 'ineq', 'fun': ineq2},
                    {'type': 'ineq', 'fun': ineq3},

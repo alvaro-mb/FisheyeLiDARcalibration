@@ -8,7 +8,7 @@ import csv
 from calibration_utils import *  # Plane, get_corners, get_rotation_and_translation, kabsch_plot, results_plot, select_image_plane, select_lidar_plane, get_lidar_corners, get_camera_corners
 from pointcloud_utils import load_pc, Visualizer
 from image_utils import CamModel
-from minimization import get_translation_parameters
+from minimization import get_transformation_parameters
 from config import params
 
 
@@ -48,7 +48,7 @@ if __name__ == "__main__":
     # Get rotation and translation between camera and lidar reference systems
     methods = ['Nelder-Mead', 'Powell', 'CG', 'BFGS', 'L-BFGS-B', 'TNC', 'COBYLA', 'SLSQP', 'trust-constr']
     for method in methods:
-        solution, mean_error = get_translation_parameters(lidar_corners, camera_corners, method, plot=False)
+        solution, mean_error = get_transformation_parameters(lidar_corners, camera_corners, method, plot=False)
         rotation, translation = solution[:3], solution[3:]
         print('Method: ', method)
         print('Mean error: ', mean_error)
@@ -70,7 +70,7 @@ if __name__ == "__main__":
                 csvwriter.writerow(['Translation', translation[0], translation[1], translation[2]])
                 rotationerrors = rotation - real_rotation
                 csvwriter.writerow(['RotationErrors', rotationerrors[0], rotationerrors[1], rotationerrors[2]])
-                rotationerror = np.linalg.norm(rotationerrors)
+                rotationerror = np.mean(rotationerrors)
                 csvwriter.writerow(['RotationError', rotationerror])
                 translationerrors = translation - real_translation
                 csvwriter.writerow(['TranslationErrors', translationerrors[0], translationerrors[1], translationerrors[2]])
