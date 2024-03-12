@@ -8,7 +8,7 @@ from image_utils import Image
 
 
 if __name__ == "__main__":
-    images_path = 'demo/images/'
+    images_path = 'simulation/images/'
     imgs = sorted(glob(os.path.join(images_path, "*")), key=os.path.getmtime)
     image = Image(imgs[0], fov=185, xyxy=[650, 360, 1510, 810])
     image.square_fisheye(h_cut=80)

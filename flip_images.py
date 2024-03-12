@@ -10,7 +10,7 @@ from config import params
 images_path = params.images_path
 
 # Get images paths
-images = sorted(glob(os.path.join(images_path, "*")), key=os.path.getmtime)
+images = sorted(glob(os.path.join(images_path, "*.png")))
 
 # Loop for flipping images
 for image in images:

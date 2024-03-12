@@ -1,9 +1,9 @@
 # Description: Configuration file for the experiment
 
 # Experiment data
-images_path: "simulation/images"  #"demo/images"
+images_path: "simulation/images1"  #"demo/images"
 spherical: True # True if you are using spherical images, False if you are using fisheye images
-pointclouds_path: "simulation/pointclouds"  #"demo/pointclouds"
+pointclouds_path: "simulation/pointclouds1"  #"demo/pointclouds"
 
 # Calibration data
 calibration_file: "demo/calib_results.txt"
@@ -36,14 +36,14 @@ contour_distance_threshold: 0.7  # Threshold for filtering the closest contours 
 # For a very turned plane or close to the image boundaries, it is recommended to decrease the threshold to avoid losing corners.
 ransac_iterations: 5000  # Number of RANSAC iterations for selecting corners which optimizes the distance between them
 
-show_segmented_plane: False # Show segmentated plane in the image
+show_segmented_plane: True # Show segmentated plane in the image
 
 # Save data results
 save_path: "results"  # Path to save the results. The folder is created if it does not exist.
-results_file: "results_simulation32_minimization"  # Name of the results file
+results_file: "results_simulation_minimization1"  # Name of the results file
 save_results: True  # Save results from calibration (rotation and translation) in a .csv file
-save_corners_path: "results"  # Path to save corners values
-save_corners_file: "corners_simulation32"  # Name of the corners file
+save_corners_path: "corners"  # Path to save corners values
+save_corners_file: "corners_simulation_minimization1"  # Name of the corners file
 save_corners: True  # Save corners values in a .csv file
 
 outputs_file: "outputs"  # Name of the outputs file

@@ -17,7 +17,7 @@ if __name__ == "__main__":
     # Get images and pointclouds paths
     images_path = params.images_path
     pointclouds_path = params.pointclouds_path
-    imgs = sorted(glob(os.path.join(images_path, "*")))
+    imgs = sorted(glob(os.path.join(images_path, "*.png")))
     pcls = sorted(glob(os.path.join(pointclouds_path, '*')))
 
     # Define camera model from calibration file

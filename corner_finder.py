@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
 import csv
 
-from segment_anything import sam_model_registry, SamPredictor
+# from segment_anything import sam_model_registry, SamPredictor
 
 from calibration_utils import *  # Plane, get_corners, get_rotation_and_translation, kabsch_plot, results_plot, select_image_plane, select_lidar_plane, get_lidar_corners, get_camera_corners
 from pointcloud_utils import load_pc, Visualizer
@@ -19,7 +19,7 @@ if __name__ == "__main__":
     # Get images and pointclouds paths
     images_path = params.images_path
     pointclouds_path = params.pointclouds_path
-    imgs = sorted(glob(os.path.join(images_path, "*")))
+    imgs = sorted(glob(os.path.join(images_path, "*.png")))
     pcls = sorted(glob(os.path.join(pointclouds_path, '*')))
 
     # Define camera model from calibration file
@@ -32,12 +32,12 @@ if __name__ == "__main__":
     assert len(imgs) == len(pcls), "Images and pointclouds have different length"
     
     mask = None
-    # Load SAM model
-    if params.simulated != True:
-        sam_checkpoint = "sam_vit_h_4b8939.pth"
-        sam = sam_model_registry[params.model_type](checkpoint=sam_checkpoint)
-        sam.to(device=params.device)
-        mask = SamPredictor(sam)
+    # # Load SAM model
+    # if params.simulated != True:
+    #     sam_checkpoint = "sam_vit_h_4b8939.pth"
+    #     sam = sam_model_registry[params.model_type](checkpoint=sam_checkpoint)
+    #     sam.to(device=params.device)
+    #     mask = SamPredictor(sam)
     
     # indexes = list(range(1))
     indexes = list(range(len(imgs)))
@@ -114,6 +114,8 @@ if __name__ == "__main__":
     lidar_corners = np.array(lidar_corners)
 
     if params.save_corners:
+        if not os.path.exists(params.save_corners_path):
+            os.makedirs(params.save_corners_path)
         # concatenate camera and lidar corners
         l_c_corners = np.concatenate((lidar_corners, camera_corners2d), axis=1)
         filename = params.save_corners_path + '/' + params.save_corners_file + '.csv'

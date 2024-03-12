@@ -38,7 +38,7 @@ def error_function(unknowns, *data):
     pointcloud.get_spherical_coord(lidar2camera=False)
     
     images_path = params.images_path
-    imgs = sorted(glob(os.path.join(images_path, "*")), key=os.path.getmtime)
+    imgs = sorted(glob(os.path.join(images_path, "*.png")), key=os.path.getmtime)
     # pointclouds_path = params.pointclouds_path
     # pcls = sorted(glob(os.path.join(pointclouds_path, '*')), key=os.path.getmtime)
     image = Image(imgs[0], fov=185, spherical_image=True)
@@ -116,7 +116,7 @@ def get_transformation_parameters(corners3d, corners2d, method, plot=False):
         fig, ax = plt.subplots()
         images_path = params.images_path
         pointclouds_path = params.pointclouds_path
-        imgs = sorted(glob(os.path.join(images_path, "*")))
+        imgs = sorted(glob(os.path.join(images_path, "*.png")))
         pcls = sorted(glob(os.path.join(pointclouds_path, '*')))
         img = Image(imgs[0], fov=185, spherical_image=True)
         im = ax.imshow(img.image)

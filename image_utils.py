@@ -74,7 +74,10 @@ class Image:
         if fov is None:
             assert isinstance(cam_model, CamModel), "CamModel object or fov must be given."
         self.cam_model = cam_model
-        self.FOV = np.deg2rad(fov)
+        if fov is not None:
+            self.FOV = np.deg2rad(fov)
+        else:
+            self.FOV = None
         self.xyxy = xyxy
         self.points_values = points_values
         self.rotm = R.from_euler('xyz', [np.pi / 2, 0, np.pi / 2]).as_matrix()
