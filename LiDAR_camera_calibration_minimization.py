@@ -42,8 +42,12 @@ if __name__ == "__main__":
     camera_corners[:, 0] = - camera_corners[:, 0]
     camera_corners[:, 1] = 2 * camera_corners[:, 1]
 
-    real_rotation = np.array([0, 0, 0])
-    real_translation = np.array([0.1, -0.05, -0.16145])
+    if params.simulated:
+        with open(params.ground_truth_file, newline='') as f:
+            reader = csv.reader(f)
+            # row one is rotation and row two is translation
+            real_rotation = np.array([float(i) for i in next(reader)])
+            real_translation = np.array([float(i) for i in next(reader)])
 
     # Get rotation and translation between camera and lidar reference systems
     methods = ['Nelder-Mead', 'Powell', 'CG', 'BFGS', 'L-BFGS-B', 'TNC', 'COBYLA', 'SLSQP', 'trust-constr']
@@ -68,14 +72,15 @@ if __name__ == "__main__":
                 csvwriter.writerow(['Method', method])
                 csvwriter.writerow(['Rotation', rotation[0], rotation[1], rotation[2]])
                 csvwriter.writerow(['Translation', translation[0], translation[1], translation[2]])
-                rotationerrors = rotation - real_rotation
-                csvwriter.writerow(['RotationErrors', rotationerrors[0], rotationerrors[1], rotationerrors[2]])
-                rotationerror = np.mean(rotationerrors)
-                csvwriter.writerow(['RotationError', rotationerror])
-                translationerrors = translation - real_translation
-                csvwriter.writerow(['TranslationErrors', translationerrors[0], translationerrors[1], translationerrors[2]])
-                translationerror = np.linalg.norm(translationerrors)
-                csvwriter.writerow(['TranslationError', translationerror])
+                if params.simulated:
+                    rotationerrors = rotation - real_rotation
+                    csvwriter.writerow(['RotationErrors', rotationerrors[0], rotationerrors[1], rotationerrors[2]])
+                    rotationerror = np.mean(rotationerrors)
+                    csvwriter.writerow(['RotationError', rotationerror])
+                    translationerrors = translation - real_translation
+                    csvwriter.writerow(['TranslationErrors', translationerrors[0], translationerrors[1], translationerrors[2]])
+                    translationerror = np.linalg.norm(translationerrors)
+                    csvwriter.writerow(['TranslationError', translationerror])
                 csvwriter.writerow(['MeanPixelError', mean_error])
                 # csvwriter.writerow(['StdError', std_error])
             # np.savetxt(params.save_path + '/' + params.results_file, results, delimiter=",")

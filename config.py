@@ -11,6 +11,7 @@ class PathParameters:
         self.images_path = param_data['images_path']
         self.spherical = param_data['spherical']
         self.pointclouds_path = param_data['pointclouds_path']
+        self.ground_truth_file = param_data['ground_truth_file']
         self.calibration_file = param_data['calibration_file']
 
 class ExperimentParameters:

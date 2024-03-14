@@ -3,6 +3,7 @@ from glob import glob
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
+import csv
 
 from config import params
 from pointcloud_utils import Visualizer
@@ -19,9 +20,15 @@ if __name__ == "__main__":
         # indexes = list(range(1))
         indexes = list(range(len(imgs)))
 
-        translation = [0, 0, -1]
         rotation = [0, 0, 0]
+        translation = [0, 0, 0]
 
+        # if params.simulated:
+        #     with open(params.ground_truth_file, newline='') as f:
+        #         reader = csv.reader(f)
+        #         # row one is rotation and row two is translation
+        #         rotation = np.array([float(i) for i in next(reader)])
+        #         translation = np.array([float(i) for i in next(reader)])
         
         # Loop for selecting planes from the pointclouds and the images
         for i in indexes:
@@ -39,5 +46,5 @@ if __name__ == "__main__":
                 lat = np.arctan2(zs, np.linalg.norm([xs, ys], axis=0))
                 x = (- long) * image.shape[1] / (2*np.pi) + image.shape[1] / 2
                 y = (-lat) * image.shape[0] / np.pi + image.shape[0] / 2
-                plt.scatter(x, y, s=0.1, c=pointcloud.reflectivity, cmap='jet')
+                plt.scatter(x, y, s=1.3, c=pointcloud.reflectivity, cmap='jet')
                 plt.show()

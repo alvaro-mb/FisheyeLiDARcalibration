@@ -1,9 +1,10 @@
 # Description: Configuration file for the experiment
 
 # Experiment data
-images_path: "simulation/images1"  #"demo/images"
+images_path: "simulation/image"  #"demo/images"
 spherical: True # True if you are using spherical images, False if you are using fisheye images
-pointclouds_path: "simulation/pointclouds1"  #"demo/pointclouds"
+pointclouds_path: "simulation/pointcloud"  #"demo/pointclouds"
+ground_truth_file: "simulation/transforms/T2.csv"  # csv file with the ground truth transformation
 
 # Calibration data
 calibration_file: "demo/calib_results.txt"
@@ -18,7 +19,7 @@ show_lidar_onto_image: 0  # 0: no, 1: on equirectangular image, 2: on fisheye im
 
 # LiDAR detection plane and corner extraction parameters
 reflectivity_threshold: 0.21  # Reflectance threshold for filtering points. Between 0 and 1. 0 for no filtering.
-radius_kdtree: 0.08  # Radius for kdtree search. Distance for finding new neighbors in plane points.
+radius_kdtree: 0.08  # Radius for kdtree search. Distance for finding new neighbors in plane points in meters.
 rotations: 720  # Number of different equal plane rotations in degrees between 0º and 90º to minimize plane area. Default 360
 show_lidar_plane: False  # Show lidar detected plane
 
@@ -32,7 +33,7 @@ device: "cuda"  # "cpu" or "cuda". Check Pytorch version for compatibility
 
 dilation: True  # Morphological dilation 
 kernel_size: 4  # Kernel size for morphological dilation
-contour_distance_threshold: 0.7  # Threshold for filtering the closest contours points to the mask centroid. Between 0 and 1. 
+contour_distance_threshold: 0.65  # Threshold for filtering the closest contours points to the mask centroid. Between 0 and 1. 
 # For a very turned plane or close to the image boundaries, it is recommended to decrease the threshold to avoid losing corners.
 ransac_iterations: 5000  # Number of RANSAC iterations for selecting corners which optimizes the distance between them
 
@@ -40,10 +41,10 @@ show_segmented_plane: True # Show segmentated plane in the image
 
 # Save data results
 save_path: "results"  # Path to save the results. The folder is created if it does not exist.
-results_file: "results_simulation_minimization1"  # Name of the results file
+results_file: "results_simulation_minimization2"  # Name of the results file
 save_results: True  # Save results from calibration (rotation and translation) in a .csv file
 save_corners_path: "corners"  # Path to save corners values
-save_corners_file: "corners_simulation_minimization1"  # Name of the corners file
+save_corners_file: "corners_simulation_minimization2"  # Name of the corners file
 save_corners: True  # Save corners values in a .csv file
 
 outputs_file: "outputs"  # Name of the outputs file
