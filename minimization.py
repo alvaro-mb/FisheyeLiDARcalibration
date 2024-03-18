@@ -4,6 +4,7 @@ from glob import glob
 import os
 import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
+import cv2
 
 from pointcloud_utils import PointCloud
 from image_utils import Image
@@ -78,6 +79,75 @@ def error_function(unknowns, *data):
     return error
 
 
+def error_function_mask(unknowns, *data):
+    alpha, beta, gamma, x, y, z = unknowns
+    contours = data[0]
+    masks = data[1]
+
+    # pointcloud = PointCloud(corners3d)
+    # pointcloud.define_transform_matrix([alpha, beta, gamma], [x, y, z])
+    # pointcloud.get_spherical_coord(lidar2camera=True)
+    Rx = np.array([[1, 0, 0], [0, np.cos(alpha), -np.sin(alpha)], [0, np.sin(alpha), np.cos(alpha)]])
+    Ry = np.array([[np.cos(beta), 0, np.sin(beta)], [0, 1, 0], [-np.sin(beta), 0, np.cos(beta)]])
+    Rz = np.array([[np.cos(gamma), -np.sin(gamma), 0], [np.sin(gamma), np.cos(gamma), 0], [0, 0, 1]])
+    R = np.dot(Rz, np.dot(Ry, Rx))
+    
+    images_path = params.images_path
+    imgs = sorted(glob(os.path.join(images_path, "*")), key=os.path.getmtime)
+    pointclouds_path = params.pointclouds_path
+    pcls = sorted(glob(os.path.join(pointclouds_path, '*')), key=os.path.getmtime)
+
+    image = Image(imgs[0], fov=185, spherical_image=True)
+    
+    errors = []
+    for lidar_contours, image_masks in zip(contours, masks):
+        mask_error = []
+        for contour, mask in zip(lidar_contours, image_masks):
+            translated_contour = np.dot(R, contour.T) + np.array([x, y, z]).reshape(3, 1)
+            pc = PointCloud(translated_contour.T)
+            pc.get_spherical_coord(lidar2camera=False)
+            image.sphere_coord = pc.spherical_coord
+            image.sphere2equirect()
+            image.norm2image(equirect=True)
+            vertices = image.eqr_coord.reshape((-1, 1, 2))
+            contour_mask = np.zeros(image.image.shape, dtype=np.uint8)
+            cv2.fillPoly(contour_mask, [vertices], color=(255, 255, 255))
+            error = np.sum(np.logical_xor(mask, contour_mask))
+            mask_error.append(error)
+        errors.append(mask_error)
+
+    if len(data) > 1:
+        im = data[1]
+        scat = data[2]
+        fig = data[3]
+        img = Image(imgs[0], fov=185, spherical_image=True)
+        im.set_data(img.image)
+        pc = PointCloud(contours[0])
+        pc.define_transform_matrix([alpha, beta, gamma], [x, y, z])
+        pc.get_spherical_coord(lidar2camera=True)
+        img.sphere_coord = pc.spherical_coord
+        img.lidar_projection()
+        x = img.eqr_coord[0, :]
+        y = img.eqr_coord[1, :]
+
+        mask = masks[0][0] + masks[0][1]
+        mask = mask.astype(np.uint8)
+        mask = np.stack((mask, mask, mask), axis=2)
+        color = np.concatenate([np.random.random(3), np.array([0.6])], axis=0)
+        h, w = mask.shape[-2:]
+        mask_image = mask.reshape(h, w, 1) * color.reshape(1, 1, -1)
+        mask_image = mask_image.astype(np.uint8)
+        image_and_mask = imgs[0] + mask_image
+        im.set_data(image_and_mask)
+
+        scat.set_offsets(np.array([x, y]).T)
+        fig.canvas.draw()
+        plt.pause(0.00001)
+
+    error = np.mean(errors)
+    return error
+
+
 def ineq1(unknowns):
     alpha, beta, gamma, x, y, z = unknowns
     return -alpha + 180
@@ -134,4 +204,38 @@ def get_transformation_parameters(corners3d, corners2d, method, plot=False):
     else:
         solution = minimize(error_function, [0, 0, 0, 0, 0, 0], args=Features(corners3d, corners2d), constraints=constraints, method=method)
         projection_error = error_function(solution.x, Features(corners3d, corners2d))
+    return solution.x, projection_error
+
+
+def get_transformation_parameters_mask(contour_points, masks, method, plot=False):
+    constraints = [{'type': 'ineq', 'fun': ineq1},
+                   {'type': 'ineq', 'fun': ineq2},
+                   {'type': 'ineq', 'fun': ineq3},
+                   {'type': 'ineq', 'fun': ineq4},
+                   {'type': 'ineq', 'fun': ineq5},
+                   {'type': 'ineq', 'fun': ineq6}]
+    
+    if plot:
+        plt.ion()
+        fig, ax = plt.subplots()
+        images_path = params.images_path
+        pointclouds_path = params.pointclouds_path
+        imgs = sorted(glob(os.path.join(images_path, "*.png")))
+        pcls = sorted(glob(os.path.join(pointclouds_path, '*')))
+        img = Image(imgs[0], fov=185, spherical_image=True)
+        im = ax.imshow(img.image)
+        pc = PointCloud(pcls[0])
+        pc.get_spherical_coord(lidar2camera=False)
+        img.sphere_coord = pc.spherical_coord
+        img.lidar_projection()
+        scat = ax.scatter(img.eqr_coord[0, :], img.eqr_coord[1, :], c='r', s=0.5)  #, c=pc.depth, s=1, cmap='jet')
+
+        solution = minimize(error_function_mask, [0, 0, 0, 0, 0, 0], args=(contour_points, masks, im, scat, fig), constraints=constraints)
+        plt.ioff()
+        plt.show()
+        projection_error = error_function_mask(solution.x, (contour_points, masks))
+    
+    else:
+        solution = minimize(error_function_mask, [0, 0, 0, 0, 0, 0], args=(contour_points, masks), constraints=constraints, method=method)
+        projection_error = error_function_mask(solution.x, (contour_points, masks))
     return solution.x, projection_error

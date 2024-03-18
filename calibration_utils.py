@@ -419,6 +419,30 @@ def get_lidar_corners(points, plane_index_points, plane):
     
     return lidar_corners3d
 
+
+def get_lidar_contour(points, plane_index_points, plane):
+    """ Get the plane contour from the initial plane points.
+        :param points:              array with 3d lidar filtered points
+        :param plane_index_poiints: array of initial plane points.
+        :param plane:               Plane object containing dimension information of the plane
+        
+        :return: array with 3d lidar contour points
+    """
+    corners3d = get_lidar_corners(points, plane_index_points, plane)
+    contour_points = []
+    for i in range(4):
+        p1 = corners3d[i]
+        p2 = corners3d[(i + 1) % 4]
+
+        # distance between p1 and p2
+        num_points = 20
+        t = np.linspace(0, 1, num_points)
+        points = np.outer((1 - t), p1) + np.outer(t, p2)
+        contour_points.extend(p1)
+        contour_points.extend(points)
+
+    return np.asarray(contour_points).reshape(-1, 3)
+
         
 def get_camera_corners(image, camera_model, plane, lidar_corners3d, input_data, mask_predict=None):
     """ Get the camera 3d corners from the planes in the images.
@@ -430,7 +454,7 @@ def get_camera_corners(image, camera_model, plane, lidar_corners3d, input_data, 
                                 if detection mode is automatic, input data for mask detection (points or box)
         :param mask_predict:    mask_predict object for predicting the mask of the plane
         
-        :return: array with 3d camera corners and array with 2d camera corners
+        :return: array with 3d camera corners, array with 2d camera corners and mask
     """
     
     if params.corner_detection_mode == "manual":
@@ -656,7 +680,7 @@ def get_camera_corners(image, camera_model, plane, lidar_corners3d, input_data, 
     # plt.scatter(x, y, s=10, c='r')
     # plt.show()
     
-    return camera_corners3d, image_points.T
+    return camera_corners3d, image_points.T, mask
 
 
 def get_rotation_and_translation(camera_corners3d, lidar_corners3d, pointcloud):

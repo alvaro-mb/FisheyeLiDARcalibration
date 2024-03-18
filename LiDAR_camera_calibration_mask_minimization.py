@@ -8,7 +8,7 @@ import csv
 from calibration_utils import *  # Plane, get_corners, get_rotation_and_translation, kabsch_plot, results_plot, select_image_plane, select_lidar_plane, get_lidar_corners, get_camera_corners
 from pointcloud_utils import load_pc, Visualizer
 from image_utils import CamModel
-from minimization import get_transformation_parameters
+from minimization import get_transformation_parameters_mask
 from config import params
 
 
@@ -20,27 +20,53 @@ if __name__ == "__main__":
     imgs = sorted(glob(os.path.join(images_path, "*.png")))
     pcls = sorted(glob(os.path.join(pointclouds_path, '*')))
 
+    images = [(mpimg.imread(img)[:, :, 3] * 255).astype(np.uint8) for img in imgs]
+
+    pointclouds = [Visualizer(pcl, image) for pcl, image in zip(pcls, images)]
+    pointcloud_points = [pointcloud.lidar3d for pointcloud in pointclouds]
+
     # Define camera model from calibration file
     cam_model = CamModel(params.calibration_file)
+
+    mask = None
+    # # Load SAM model
+    # if params.simulated != True:
+    #     sam_checkpoint = "sam_vit_h_4b8939.pth"
+    #     sam = sam_model_registry[params.model_type](checkpoint=sam_checkpoint)
+    #     sam.to(device=params.device)
+    #     mask = SamPredictor(sam)
 
     filename = params.save_data_path + '/' + params.save_data_file + '.csv'
     with open(filename, newline='') as f:
         reader = csv.reader(f)
-        corners = []
+        plane_points = []
         for row in reader:
-            corner = [float(row[0]), float(row[1]), float(row[2]), float(row[3]), float(row[4])]
-            corners.append(corner)
-    corners=np.asarray(corners)
+            points = [float(row[0]), float(row[1]), float(row[2])]
+            plane_points.append(points)
+    plane_points = np.asarray(plane_points)
+    plane_sizes = params.planes_sizes
+    plane_points = plane_points.reshape(-1, len(plane_sizes), 3)
 
-    lidar_corners = corners[:, :3]
-    # camera_norm_corners = corners[:, 3:]
-    # image = Image(camera_norm_corners, fov=185)
-    # image.norm_coord = camera_norm_corners
-    # image.norm2image(equirect=True)
-    # camera_corners = image.eqr_coord
-    camera_corners = corners[:, 3:]
-    camera_corners[:, 0] = - camera_corners[:, 0]
-    camera_corners[:, 1] = 2 * camera_corners[:, 1]
+    contours = []
+    masks = []
+    # Loop for getting contours and masks from the pointclouds and the images
+    for points, pc_points, image in zip(plane_points, pointcloud_points, images):        
+        # Get contours and masks coordinates
+        idplane = 1
+        lidar_contours = []
+        image_masks = []
+        for size in range(len(points)):
+            plane = Plane(plane_sizes[size][0], plane_sizes[size][1], idplane)
+            init_plane_points = points[size]
+            lidar_contour = get_lidar_contour(pc_points, init_plane_points, plane)
+            _, _, image_mask = get_camera_corners(image, cam_model, plane, lidar_contour, mask)
+            idplane += 1
+            lidar_contours.append(lidar_contour)
+            image_masks.append(image_mask)   
+        contours.append(lidar_contours) 
+        masks.append(image_masks)
+    # contours = np.reshape(contours, (-1, 2))
+    # image_masks = np.reshape(image_masks, (-1, 2))
 
     if params.simulated:
         with open(params.ground_truth_file, newline='') as f:
@@ -52,7 +78,7 @@ if __name__ == "__main__":
     # Get rotation and translation between camera and lidar reference systems
     methods = ['Nelder-Mead', 'Powell', 'CG', 'BFGS', 'L-BFGS-B', 'TNC', 'COBYLA', 'SLSQP', 'trust-constr']
     for method in methods:
-        solution, mean_error = get_transformation_parameters(lidar_corners, camera_corners, method, plot=False)
+        solution, mean_error = get_transformation_parameters_mask(contours, masks, method, plot=False)
         rotation, translation = solution[:3], solution[3:]
         print('Method: ', method)
         print('Mean error: ', mean_error)
@@ -130,8 +156,8 @@ if __name__ == "__main__":
                 image = mpimg.imread(image)
                 pointcloud = Visualizer(points, image)
                 pointcloud.define_transform_matrix(rotation, translation)
-                pointcloud.lidar_corners = lidar_corners[0 + n*i:n + n*i]
-                pointcloud.camera_corners = camera_corners[0 + n*i:n + n*i]
+                # pointcloud.lidar_corners = lidar_corners[0 + n*i:n + n*i]
+                # pointcloud.camera_corners = camera_corners[0 + n*i:n + n*i]
                 pointcloud.lidar_onto_image(cam_model=cam_model, fisheye=params.show_lidar_onto_image - 1, d_range=d_range)
                 plt.show()
     

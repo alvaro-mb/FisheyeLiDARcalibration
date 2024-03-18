@@ -39,8 +39,8 @@ if __name__ == "__main__":
     #     sam.to(device=params.device)
     #     mask = SamPredictor(sam)
     
-    # indexes = list(range(1))
-    indexes = list(range(len(imgs)))
+    indexes = list(range(2))
+    # indexes = list(range(len(imgs)))
 
     rotations = np.zeros((len(indexes), 3))
     translations = np.zeros((len(indexes), 3))
@@ -86,40 +86,13 @@ if __name__ == "__main__":
             selections[i][idplane - 1] = selection_data
             idplane += 1
 
-    camera_corners2d = []
-    camera_corners = []
-    lidar_corners = []
-    # Loop for getting corners coordinates from the pointclouds and the images
-    for j in indexes:
-        
-        # Read image and pointcloud
-        image = mpimg.imread(imgs[j])
-        # Convert image to uint8 format
-        image = (image[:, :, :3] * 255).astype(np.uint8)
-        
-        # Get corners coordinates
-        idplane = 1
-        for plane_size in planes_sizes:
-            plane = Plane(plane_size[0], plane_size[1], idplane)
-            init_plane_points = init_planes_points[j][idplane - 1]
-            l_corners = get_lidar_corners(pointclouds_points[j], init_plane_points, plane)
-            c_corners, c_corners2d = get_camera_corners(image, cam_model, plane, l_corners, selections[j][idplane - 1], mask)
-            camera_corners.extend(c_corners)
-            camera_corners2d.extend(c_corners2d)
-            lidar_corners.extend(l_corners)
-            idplane += 1
-
-    camera_corners2d = np.array(camera_corners2d)  
-    camera_corners = np.array(camera_corners)
-    lidar_corners = np.array(lidar_corners)
-
+    # Save selected points in a csv file
     if params.save_data:
         if not os.path.exists(params.save_data_path):
             os.makedirs(params.save_data_path)
-        # concatenate camera and lidar corners
-        l_c_corners = np.concatenate((lidar_corners, camera_corners2d), axis=1)
         filename = params.save_data_path + '/' + params.save_data_file + '.csv'
         with open(filename, 'w', newline='') as csvfile:
             csvwriter = csv.writer(csvfile)
-            for corner in l_c_corners:
-                csvwriter.writerow(corner)
+            for i in indexes:
+                for idplane in range(len(planes_sizes)):
+                    csvwriter.writerow([init_planes_points[i][idplane][len(init_plane_points)//2]] + selections[i][idplane].tolist()[0])
