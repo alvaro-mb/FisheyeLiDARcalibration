@@ -40,7 +40,9 @@ def get_plane_points(points, i):
         if len(idxs) == 0:
             break
         new_indexes = []
-        for idx in idxs:
+        if idxs[0].__class__ == int:
+            idxs = [idxs]
+        for idx in idxs:            
             new_indexes.extend(idx)
         new_indexes = list(dict.fromkeys(new_indexes))  # filter repeated points
         i = [e for e in new_indexes if e not in indexes]
@@ -253,7 +255,7 @@ def show_mask(mask, ax, random_color=False):
         color = np.concatenate([np.random.random(3), np.array([0.6])], axis=0)
     else:
         color = np.array([30/255, 144/255, 255/255, 0.6])
-    h, w = mask.shape[-2:]
+    h, w = mask.shape[:2]
     mask_image = mask.reshape(h, w, 1) * color.reshape(1, 1, -1)
     ax.imshow(mask_image)
     
@@ -429,6 +431,7 @@ def get_lidar_contour(points, plane_index_points, plane):
         :return: array with 3d lidar contour points
     """
     corners3d = get_lidar_corners(points, plane_index_points, plane)
+    corners3d[2], corners3d[3] = corners3d[3].copy(), corners3d[2].copy()
     contour_points = []
     for i in range(4):
         p1 = corners3d[i]
@@ -438,10 +441,89 @@ def get_lidar_contour(points, plane_index_points, plane):
         num_points = 20
         t = np.linspace(0, 1, num_points)
         points = np.outer((1 - t), p1) + np.outer(t, p2)
-        contour_points.extend(p1)
-        contour_points.extend(points)
+        # add points arrays to the contour list
+        for point in points:
+            contour_points.append(point)
+    contour_points = np.asarray(contour_points)
+    # plt.plot(point[0], point[1], 'ro')
 
-    return np.asarray(contour_points).reshape(-1, 3)
+    return contour_points
+
+
+def get_plane_mask(image, input_data, mask_predict=None):
+    """ Get the plane mask from the image.
+        :param image:           image in uint8 format
+        :param input_data:      if detection mode is manual, array of 2D points of the plane 
+                                if detection mode is automatic, input data for mask detection (points or box)
+        :param mask_predict:    mask_predict object for predicting the mask of the plane
+        
+        :return: 2d array image sized with mask information, score of the mask and labels
+    """
+    if params.simulated:
+        score = [1.0]
+        if params.selection_mode == "points":
+            # Find points in the neighborhood and add them to the plane if they are not black
+            plane_points = np.zeros((image.shape[0], image.shape[1]))
+            plane_points[input_data[:, 1], input_data[:, 0]] = 1
+            directions = [(0, 1), (0, -1), (1, 0), (-1, 0), (1, 1), (-1, -1), (-1, 1), (1, -1)]
+            queue = [input_data[0]]
+            while queue:
+                point = queue.pop(0)
+                x, y = point[1], point[0]
+                for dx, dy in directions:
+                    nx, ny = x + dx, y + dy
+                    if 0 <= nx < image.shape[0] and 0 <= ny < image.shape[1]:
+                        if np.any(image[nx, ny] != np.zeros(3)):
+                            if plane_points[nx, ny] != 1:
+                                plane_points[nx, ny] = 1
+                                queue.append((ny, nx))
+            mask = plane_points.astype(np.uint8) * 255
+            input_point = input_data
+            # print(input_point)
+            input_label = np.ones(len(input_point))
+            
+        elif params.selection_mode == "box":
+            plane_points = np.zeros((image.shape[0], image.shape[1]))
+            # turn into one the points in the box that are not black in the image
+            # # plot the box onto the image
+            # plt.imshow(image)
+            # plt.gca().add_patch(plt.Rectangle((input_data[0], input_data[1]), input_data[2] - input_data[0],
+            #                                     input_data[3] - input_data[1], linewidth=1, edgecolor='r',
+            #                                     facecolor='none'))
+            # plt.show()
+            window = image[input_data[1]:input_data[3], input_data[0]:input_data[2], :]
+            # get the indexes from the points that are not black
+            idx = np.where(window != [0, 0, 0])
+            # convert to 1 the points from plane points that are not black
+            plane_points[input_data[1] + idx[0], input_data[0] + idx[1]] = 1
+            mask = plane_points.astype(np.uint8) * 255
+
+    elif params.simulated != True:
+        assert mask_predict is not None, "mask_predict must be provided in automatic and not simulated mode"
+        if params.selection_mode == "points":
+            input_point = input_data
+            input_label = np.ones(len(input_point))  # Ones for foreground
+            input_box = None
+        elif params.selection_mode == "box":
+            input_box = input_data
+            input_point, input_label = None, None
+
+        # Predict mask
+        mask_predict.set_image(image)
+        mask, score, logits = mask_predict.predict(point_coords=input_point,
+                                                   point_labels=input_label,
+                                                   box=input_box,
+                                                   multimask_output=False)
+        if params.dilation:
+            # Convert the boolean values to uint8 values (0 for False, 255 for True)
+            mask_uint8 = mask[0].astype(np.uint8) * 255
+            ks = params.kernel_size
+            kernel = np.ones((ks, ks), np.uint8)  # Define kernel for dilation
+            # Apply dilation to the mask
+            mask = cv2.dilate(mask_uint8, kernel, iterations=1)
+
+    return mask, score, input_point, input_label
+
 
         
 def get_camera_corners(image, camera_model, plane, lidar_corners3d, input_data, mask_predict=None):
@@ -462,67 +544,7 @@ def get_camera_corners(image, camera_model, plane, lidar_corners3d, input_data, 
         image2d_points = input_data
         
     elif params.corner_detection_mode == "automatic":
-        if params.simulated:
-            score = [1.0]
-            if params.selection_mode == "points":
-                # Find points in the neighborhood and add them to the plane if they are not black
-                plane_points = np.zeros((image.shape[0], image.shape[1]))
-                plane_points[input_data[:, 1], input_data[:, 0]] = 1
-                directions = [(0, 1), (0, -1), (1, 0), (-1, 0), (1, 1), (-1, -1), (-1, 1), (1, -1)]
-                queue = [input_data[0]]
-                while queue:
-                    point = queue.pop(0)
-                    x, y = point[1], point[0]
-                    for dx, dy in directions:
-                        nx, ny = x + dx, y + dy
-                        if 0 <= nx < image.shape[0] and 0 <= ny < image.shape[1]:
-                            if np.any(image[nx, ny] != np.zeros(3)):
-                                if plane_points[nx, ny] != 1:
-                                    plane_points[nx, ny] = 1
-                                    queue.append((ny, nx))
-                mask = plane_points.astype(np.uint8) * 255
-                input_point = input_data
-                input_label = np.ones(len(input_point))
-                
-            elif params.selection_mode == "box":
-                plane_points = np.zeros((image.shape[0], image.shape[1]))
-                # turn into one the points in the box that are not black in the image
-                # # plot the box onto the image
-                # plt.imshow(image)
-                # plt.gca().add_patch(plt.Rectangle((input_data[0], input_data[1]), input_data[2] - input_data[0],
-                #                                     input_data[3] - input_data[1], linewidth=1, edgecolor='r',
-                #                                     facecolor='none'))
-                # plt.show()
-                window = image[input_data[1]:input_data[3], input_data[0]:input_data[2], :]
-                # get the indexes from the points that are not black
-                idx = np.where(window != [0, 0, 0])
-                # convert to 1 the points from plane points that are not black
-                plane_points[input_data[1] + idx[0], input_data[0] + idx[1]] = 1
-                mask = plane_points.astype(np.uint8) * 255
-
-        elif params.simulated != True:
-            assert mask_predict is not None, "mask_predict must be provided in automatic and not simulated mode"
-            if params.selection_mode == "points":
-                input_point = input_data
-                input_label = np.ones(len(input_point))  # Ones for foreground
-                input_box = None
-            elif params.selection_mode == "box":
-                input_box = input_data
-                input_point, input_label = None, None
-
-            # Predict mask
-            mask_predict.set_image(image)
-            mask, score, logits = mask_predict.predict(point_coords=input_point,
-                                                       point_labels=input_label,
-                                                       box=input_box,
-                                                       multimask_output=False)
-            if params.dilation:
-                # Convert the boolean values to uint8 values (0 for False, 255 for True)
-                mask_uint8 = mask[0].astype(np.uint8) * 255
-                ks = params.kernel_size
-                kernel = np.ones((ks, ks), np.uint8)  # Define kernel for dilation
-                # Apply dilation to the mask
-                mask = cv2.dilate(mask_uint8, kernel, iterations=1)
+        mask, score, input_point, input_label = get_plane_mask(image, input_data, mask_predict)
             
         # Find the contours of the mask image
         contours, hierarchy = cv2.findContours(mask, cv2.RETR_LIST, cv2.CHAIN_APPROX_NONE)

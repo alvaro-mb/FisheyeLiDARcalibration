@@ -17,10 +17,10 @@ if __name__ == "__main__":
     # Get images and pointclouds paths
     images_path = params.images_path
     pointclouds_path = params.pointclouds_path
-    imgs = sorted(glob(os.path.join(images_path, "*.png")))
+    imgs = sorted(glob(os.path.join(images_path, "*")))
     pcls = sorted(glob(os.path.join(pointclouds_path, '*')))
 
-    images = [(mpimg.imread(img)[:, :, 3] * 255).astype(np.uint8) for img in imgs]
+    images = [(mpimg.imread(img)[:, :, :3] * 255).astype(np.uint8) for img in imgs]
 
     pointclouds = [Visualizer(pcl, image) for pcl, image in zip(pcls, images)]
     pointcloud_points = [pointcloud.lidar3d for pointcloud in pointclouds]
@@ -52,15 +52,14 @@ if __name__ == "__main__":
     # Loop for getting contours and masks from the pointclouds and the images
     for points, pc_points, image in zip(plane_points, pointcloud_points, images):        
         # Get contours and masks coordinates
-        idplane = 1
         lidar_contours = []
         image_masks = []
         for size in range(len(points)):
-            plane = Plane(plane_sizes[size][0], plane_sizes[size][1], idplane)
-            init_plane_points = points[size]
-            lidar_contour = get_lidar_contour(pc_points, init_plane_points, plane)
-            _, _, image_mask = get_camera_corners(image, cam_model, plane, lidar_contour, mask)
-            idplane += 1
+            plane = Plane(plane_sizes[size][0], plane_sizes[size][1], size + 1)
+            lidar_point = points[size][0].astype(np.int32)
+            plane_pixels = np.asarray([points[size][1:]]).astype(np.int32)
+            lidar_contour = get_lidar_contour(pc_points, lidar_point, plane)
+            image_mask, score, _, _ = get_plane_mask(image, plane_pixels, mask)
             lidar_contours.append(lidar_contour)
             image_masks.append(image_mask)   
         contours.append(lidar_contours) 
@@ -77,8 +76,9 @@ if __name__ == "__main__":
 
     # Get rotation and translation between camera and lidar reference systems
     methods = ['Nelder-Mead', 'Powell', 'CG', 'BFGS', 'L-BFGS-B', 'TNC', 'COBYLA', 'SLSQP', 'trust-constr']
+    # methods = ['CG', 'BFGS', 'L-BFGS-B', 'TNC', 'COBYLA', 'SLSQP', 'trust-constr']
     for method in methods:
-        solution, mean_error = get_transformation_parameters_mask(contours, masks, method, plot=False)
+        solution, mean_error = get_transformation_parameters_mask(contours, masks, method, plot=True)
         rotation, translation = solution[:3], solution[3:]
         print('Method: ', method)
         print('Mean error: ', mean_error)
