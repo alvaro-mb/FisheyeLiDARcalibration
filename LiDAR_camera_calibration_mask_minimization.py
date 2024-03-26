@@ -75,10 +75,10 @@ if __name__ == "__main__":
             real_translation = np.array([float(i) for i in next(reader)])
 
     # Get rotation and translation between camera and lidar reference systems
+    # methods = ['Nelder-Mead', 'Powell', 'CG', 'BFGS', 'L-BFGS-B', 'TNC', 'COBYLA', 'SLSQP', 'trust-constr']
     methods = ['Nelder-Mead', 'Powell', 'CG', 'BFGS', 'L-BFGS-B', 'TNC', 'COBYLA', 'SLSQP', 'trust-constr']
-    # methods = ['CG', 'BFGS', 'L-BFGS-B', 'TNC', 'COBYLA', 'SLSQP', 'trust-constr']
     for method in methods:
-        solution, mean_error = get_transformation_parameters_mask(contours, masks, method, plot=True)
+        solution, mean_error = get_transformation_parameters_mask(contours, masks, method, plot=False)
         rotation, translation = solution[:3], solution[3:]
         print('Method: ', method)
         print('Mean error: ', mean_error)

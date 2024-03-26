@@ -22,12 +22,12 @@ if __name__ == "__main__":
     # Define camera model from calibration file
     cam_model = CamModel(params.calibration_file)
 
-    filename = params.save_corners_path + '/' + params.save_corners_file + '.csv'
+    filename = params.save_data_path + '/' + params.save_data_file + '.csv'
     with open(filename, newline='') as f:
         reader = csv.reader(f)
         corners = []
         for row in reader:
-            corner = [float(row[0]), float(row[1]), float(row[2]), float(row[3]), float(row[4])]
+            corner = [float(row[0]), float(row[1]), float(row[2]), float(row[3]), float(row[4]), float(row[5]), float(row[6]), float(row[7])]
             corners.append(corner)
     corners=np.asarray(corners)
     
@@ -37,16 +37,15 @@ if __name__ == "__main__":
     # image.norm_coord = camera_norm_corners
     # image.norm2image(equirect=True)
     # camera_corners = image.eqr_coord
-    camera_corners = corners[:, 3:]
-    camera_corners[:, 0] = - camera_corners[:, 0]
-    camera_corners[:, 1] = 2 * camera_corners[:, 1]
+    camera_corners3d = corners[:, 3:6]
+    image_corners = corners[:, 6:]
 
     # Get rotation and translation between camera and lidar reference systems
-    rotation, translation, mean_error, std_error = get_rotation_and_translation(camera_corners, lidar_corners, PointCloud(pcls[0]))
+    rotation, translation, mean_error, mean_pixel_error = get_rotation_and_translation(camera_corners3d, lidar_corners, image_corners, PointCloud(lidar_corners, image=mpimg.imread(imgs[0])))
     kabsch_errors = mean_error
-    kabsch_std = std_error
+    kabsch_mean_pixel = mean_pixel_error
     print('Mean error: ', mean_error)
-    print('Std error: ', std_error)
+    print('Mean pixel error: ', mean_pixel_error)
 
     rotations = rotation
     translations = translation
@@ -85,7 +84,7 @@ if __name__ == "__main__":
                 y = (-lat) * image.shape[0] / np.pi + image.shape[0] / 2
                 plt.scatter(x, y, s=0.1, c=pointcloud.reflectivity, cmap='jet')
 
-                icorners = PointCloud(camera_corners[0 + n*i:n + n*i])
+                icorners = PointCloud(camera_corners3d[0 + n*i:n + n*i])
                 icorners.get_spherical_coord(lidar2camera=0)
                 xs, ys, zs = icorners.spherical_coord[0], icorners.spherical_coord[1], icorners.spherical_coord[2]
                 long = np.arctan2(ys, xs)
@@ -112,9 +111,16 @@ if __name__ == "__main__":
                 pointcloud = Visualizer(points, image)
                 pointcloud.define_transform_matrix(rotation, translation)
                 pointcloud.lidar_corners = lidar_corners[0 + n*i:n + n*i]
-                pointcloud.camera_corners = camera_corners[0 + n*i:n + n*i]
+                pointcloud.camera_corners = camera_corners3d[0 + n*i:n + n*i]
                 pointcloud.lidar_onto_image(cam_model=cam_model, fisheye=params.show_lidar_onto_image - 1, d_range=d_range)
                 plt.show()
+
+    if params.simulated:
+        with open(params.ground_truth_file, newline='') as f:
+            reader = csv.reader(f)
+            # row one is rotation and row two is translation
+            real_rotation = np.array([float(i) for i in next(reader)])
+            real_translation = np.array([float(i) for i in next(reader)])
 
     if not os.path.exists(params.save_path):
         os.makedirs(params.save_path)
@@ -128,6 +134,15 @@ if __name__ == "__main__":
             csvwriter.writerow(['Rotation', rotation[0], rotation[1], rotation[2]])
             csvwriter.writerow(['Translation', translation[0], translation[1], translation[2]])
             csvwriter.writerow(['MeanError', mean_error])
-            csvwriter.writerow(['StdError', std_error])
+            csvwriter.writerow(['MeanPixelError', mean_pixel_error])
+            if params.simulated:
+                rotationerrors = rotation - real_rotation
+                csvwriter.writerow(['RotationErrors', rotationerrors[0], rotationerrors[1], rotationerrors[2]])
+                rotationerror = np.mean(rotationerrors)
+                csvwriter.writerow(['RotationError', rotationerror])
+                translationerrors = translation - real_translation
+                csvwriter.writerow(['TranslationErrors', translationerrors[0], translationerrors[1], translationerrors[2]])
+                translationerror = np.linalg.norm(translationerrors)
+                csvwriter.writerow(['TranslationError', translationerror])
         # np.savetxt(params.save_path + '/' + params.results_file, results, delimiter=",")
     

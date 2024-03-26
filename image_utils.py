@@ -323,16 +323,16 @@ class Image:
             self.eqr_image[v_o[tmp], u_o[tmp], :] = self.image[v_i[tmp], u_i[tmp], :3]
 
 
-    def lidar_projection(self, pixel_points=0):
+    def lidar_projection(self, pixel_points=False):
         """ Projects LiDAR points onto the equirectangular image.
 
-            :param pixel_points: if != 0, projects point cloud points onto the equirectangular projection as pixels.
+            :param pixel_points: if != False, projects point cloud points onto the equirectangular projection as pixels.
                                  If the equirectangular image is wanted, fish2equirect has to be called before outside.
         """
 
         self.sphere2equirect()
         self.norm2image(equirect=True)
-        if pixel_points != 0:
+        if pixel_points != False:
             self.eqr_coord = np.round(self.eqr_coord).astype(int)
             self.points_values = cm.jet(self.points_values / np.amax(self.points_values))
             u_o, v_o = np.round(self.eqr_coord[0]).astype(int), np.round(self.eqr_coord[1]).astype(int)

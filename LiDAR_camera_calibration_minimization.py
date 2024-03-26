@@ -28,7 +28,7 @@ if __name__ == "__main__":
         reader = csv.reader(f)
         corners = []
         for row in reader:
-            corner = [float(row[0]), float(row[1]), float(row[2]), float(row[3]), float(row[4])]
+            corner = [float(row[0]), float(row[1]), float(row[2]), float(row[3]), float(row[4]), float(row[5]), float(row[6]), float(row[7])]
             corners.append(corner)
     corners=np.asarray(corners)
 
@@ -38,7 +38,7 @@ if __name__ == "__main__":
     # image.norm_coord = camera_norm_corners
     # image.norm2image(equirect=True)
     # camera_corners = image.eqr_coord
-    camera_corners = corners[:, 3:]
+    camera_corners = corners[:, 6:]
     camera_corners[:, 0] = - camera_corners[:, 0]
     camera_corners[:, 1] = 2 * camera_corners[:, 1]
 

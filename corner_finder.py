@@ -19,7 +19,7 @@ if __name__ == "__main__":
     # Get images and pointclouds paths
     images_path = params.images_path
     pointclouds_path = params.pointclouds_path
-    imgs = sorted(glob(os.path.join(images_path, "*.png")))
+    imgs = sorted(glob(os.path.join(images_path, "*")))
     pcls = sorted(glob(os.path.join(pointclouds_path, '*')))
 
     # Define camera model from calibration file
@@ -32,15 +32,15 @@ if __name__ == "__main__":
     assert len(imgs) == len(pcls), "Images and pointclouds have different length"
     
     mask = None
-    # # Load SAM model
+    # Load SAM model
     # if params.simulated != True:
     #     sam_checkpoint = "sam_vit_h_4b8939.pth"
     #     sam = sam_model_registry[params.model_type](checkpoint=sam_checkpoint)
     #     sam.to(device=params.device)
     #     mask = SamPredictor(sam)
     
-    indexes = list(range(1))
-    # indexes = list(range(len(imgs)))
+    # indexes = list(range(1))
+    indexes = list(range(len(imgs)))
 
     rotations = np.zeros((len(indexes), 3))
     translations = np.zeros((len(indexes), 3))
@@ -103,7 +103,7 @@ if __name__ == "__main__":
             plane = Plane(plane_size[0], plane_size[1], idplane)
             init_plane_points = init_planes_points[j][idplane - 1]
             l_corners = get_lidar_corners(pointclouds_points[j], init_plane_points, plane)
-            c_corners, c_corners2d = get_camera_corners(image, cam_model, plane, l_corners, selections[j][idplane - 1], mask)
+            c_corners, c_corners2d, _ = get_camera_corners(image, cam_model, plane, l_corners, selections[j][idplane - 1], mask)
             camera_corners.extend(c_corners)
             camera_corners2d.extend(c_corners2d)
             lidar_corners.extend(l_corners)
@@ -113,11 +113,13 @@ if __name__ == "__main__":
     camera_corners = np.array(camera_corners)
     lidar_corners = np.array(lidar_corners)
 
+    kabsch = True
+
     if params.save_data:
         if not os.path.exists(params.save_data_path):
             os.makedirs(params.save_data_path)
         # concatenate camera and lidar corners
-        l_c_corners = np.concatenate((lidar_corners, camera_corners2d), axis=1)
+        l_c_corners = np.concatenate((lidar_corners, camera_corners, camera_corners2d), axis=1)
         filename = params.save_data_path + '/' + params.save_data_file + '.csv'
         with open(filename, 'w', newline='') as csvfile:
             csvwriter = csv.writer(csvfile)

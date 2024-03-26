@@ -525,6 +525,54 @@ def get_plane_mask(image, input_data, mask_predict=None):
     return mask, score, input_point, input_label
 
 
+def corners2d_to_3d(image2d_points, lidar_corners3d, image, plane, camera_model=None):
+    """ Get the camera 3d corners from the 2d corners in the image.
+        :param image2d_points: array of 2D points of the plane
+        :param lidar_corners3d: array with 3d lidar corners
+        :param image:           image array
+        :param plane:           Plane object containing dimension information of the plane
+        
+        :return: array with 3d camera corners
+        :return: array with 2d normalised camera corners
+    """
+    # Extract unit sphere corners coordinates from spherical projection or fisheye image
+    if params.spherical:
+        image_points = np.zeros(image2d_points.T.shape)
+        image_points[0] = - (image2d_points.T[0] - image.shape[1] / 2)
+        image_points[1] = - (image2d_points.T[1] - image.shape[0] / 2)
+        image_points[0] = 2 * image_points[0] / image.shape[1]
+        image_points[1] = image_points[1] / image.shape[0]
+        long = np.pi * image_points[0]
+        lat = np.pi * image_points[1]
+        xs = np.cos(lat) * np.cos(long)
+        ys = np.cos(lat) * np.sin(long)
+        zs = np.sin(lat)        
+        image3d_sphere = np.vstack([xs, ys, zs])
+
+        # long = np.arctan2(ys, xs)
+        # lat = np.arctan2(zs, np.linalg.norm([xs, ys], axis=0))
+        # xi = (- long) * image.shape[1] / (2*np.pi) + image.shape[1] / 2
+        # yi = (-lat) * image.shape[0] / np.pi + image.shape[0] / 2
+        # plt.imshow(image)
+        # plt.scatter(xi, yi, s=10, c='r')
+        # plt.show()
+
+    else:
+        assert camera_model is not None, "camera_model must be provided in fisheye mode"
+        fish_image = Image(image, cam_model=camera_model)
+        fish_image.spherical_proj = np.flip(image2d_points.T, axis=0)
+        fish_image.fisheye2sphere()
+        image3d_sphere = fish_image.sphere_coord
+
+    # Get 3D corners coordinates from camera reference system
+    # Change initial solutions if needed, remain x positive to get the plane in front of the camera
+    xyz0 = np.array(np.reshape(lidar_corners3d.T, 12))
+    # xyz = fsolve(equations, xyz0, args=(image3d_sphere, plane))
+    xyz = least_squares(equations, xyz0, args=(image3d_sphere, plane))
+    camera_corners3d = np.reshape(xyz.x, (3, 4)).T
+
+    return camera_corners3d, image_points
+
         
 def get_camera_corners(image, camera_model, plane, lidar_corners3d, input_data, mask_predict=None):
     """ Get the camera 3d corners from the planes in the images.
@@ -633,41 +681,8 @@ def get_camera_corners(image, camera_model, plane, lidar_corners3d, input_data, 
             plt.axis('off')
             plt.show()
             plt.close()
-    
-    # Extract unit sphere corners coordinates from spherical projection or fisheye image
-    if params.spherical:
-        image_points = np.zeros(image2d_points.T.shape)
-        image_points[0] = - (image2d_points.T[0] - image.shape[1] / 2)
-        image_points[1] = - (image2d_points.T[1] - image.shape[0] / 2)
-        image_points[0] = 2 * image_points[0] / image.shape[1]
-        image_points[1] = image_points[1] / image.shape[0]
-        long = np.pi * image_points[0]
-        lat = np.pi * image_points[1]
-        xs = np.cos(lat) * np.cos(long)
-        ys = np.cos(lat) * np.sin(long)
-        zs = np.sin(lat)        
-        image3d_sphere = np.vstack([xs, ys, zs])
 
-        # long = np.arctan2(ys, xs)
-        # lat = np.arctan2(zs, np.linalg.norm([xs, ys], axis=0))
-        # xi = (- long) * image.shape[1] / (2*np.pi) + image.shape[1] / 2
-        # yi = (-lat) * image.shape[0] / np.pi + image.shape[0] / 2
-        # plt.imshow(image)
-        # plt.scatter(xi, yi, s=10, c='r')
-        # plt.show()
-
-    else:
-        fish_image = Image(image, cam_model=camera_model)
-        fish_image.spherical_proj = np.flip(image2d_points.T, axis=0)
-        fish_image.fisheye2sphere()
-        image3d_sphere = fish_image.sphere_coord
-
-    # Get 3D corners coordinates from camera reference system
-    # Change initial solutions if needed, remain x positive to get the plane in front of the camera
-    xyz0 = np.array(np.reshape(lidar_corners3d.T, 12))
-    # xyz = fsolve(equations, xyz0, args=(image3d_sphere, plane))
-    xyz = least_squares(equations, xyz0, args=(image3d_sphere, plane))
-    camera_corners3d = np.reshape(xyz.x, (3, 4)).T
+    camera_corners3d, image_points = corners2d_to_3d(image2d_points, lidar_corners3d, image, plane, camera_model)
 
     # # plot 3d camera_corners3d. Draw lines between corners
     # plt.figure()
@@ -705,7 +720,7 @@ def get_camera_corners(image, camera_model, plane, lidar_corners3d, input_data, 
     return camera_corners3d, image_points.T, mask
 
 
-def get_rotation_and_translation(camera_corners3d, lidar_corners3d, pointcloud):
+def get_rotation_and_translation(camera_corners3d, lidar_corners3d, image_corners, pointcloud):
     """ Estimate rotation and translation between camera and lidar reference systems
         :param camera_corners3d: array of 3D camera corners coordinates
         :param lidar_corners3d:  array of 3D lidar corners coordinates
@@ -715,6 +730,8 @@ def get_rotation_and_translation(camera_corners3d, lidar_corners3d, pointcloud):
         :return: array of euler angles of rotation
         :return: array of translation values
         :return: error between transformed lidar corners and camera corners
+        :return: standard deviation of the error
+        :return: mean error between transformed lidar corners and camera corners
     """
 
     # Estimate transform matrix between corners
@@ -727,14 +744,21 @@ def get_rotation_and_translation(camera_corners3d, lidar_corners3d, pointcloud):
     # print('\nLidar corners coordinates transformed to camera reference system: \n', lidar_corners3d_transformed)
     # Get error between transformed lidar corners and camera corners
     err = np.linalg.norm(lidar_corners3d_transformed - camera_corners3d, axis=1)
-    mean_err = np.mean(err)
-    std_err = np.std(err)
+    mean_error = np.mean(err)
+    # std_err = np.std(err)
+
+    # Get reprojection error
+    image = Image(pointcloud.image, fov=185, spherical_image=params.spherical)
+    image.sphere_coord = lidar_corners3d_transformed.T
+    image.sphere2equirect()
+    pixels_error = np.linalg.norm(image.norm_coord.T - image_corners, axis=1)
+    mean_pixel_error = np.mean(pixels_error)
 
     euler = R.from_matrix(pointcloud.transform_matrix[:3, :3]).as_euler('xyz', degrees=True)
     # print('\nEuler angles from rotation matrix in degrees: \n', euler)
     # print('\nTranslation vector in meters: \n', pointcloud.transform_matrix[:3, 3])
 
-    return euler, pointcloud.transform_matrix[:3, 3], mean_err, std_err
+    return euler, pointcloud.transform_matrix[:3, 3], mean_error, mean_pixel_error
 
 
 def on_click(sel):

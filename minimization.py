@@ -192,7 +192,7 @@ def get_transformation_parameters(corners3d, corners2d, method, plot=False):
         img.lidar_projection()
         scat = ax.scatter(img.eqr_coord[0, :], img.eqr_coord[1, :], c='r', s=1)  #, c=pc.depth, s=1, cmap='jet')
 
-        solution = minimize(error_function, [0, 0, 0, 0, 0, 0], args=(Features(corners3d, corners2d), im, scat, fig), constraints=constraints)
+        solution = minimize(error_function, [0, 0, 0, 0, 0, 0], args=(Features(corners3d, corners2d), im, scat, fig), constraints=constraints, method=method)
         plt.ioff()
         plt.show()
         projection_error = error_function(solution.x, Features(corners3d, corners2d))
@@ -226,7 +226,7 @@ def get_transformation_parameters_mask(contour_points, masks, method, plot=False
         img.lidar_projection()
         scat = ax.scatter(img.eqr_coord[0, :], img.eqr_coord[1, :], c='r', s=1)  #, c=pc.depth, s=1, cmap='jet')
 
-        solution = minimize(error_function_mask, [0, 0, 0, 0, 0, 0], args=(contour_points, masks, im, scat, fig), constraints=constraints)
+        solution = minimize(error_function_mask, [0, 0, 0, 0, 0, 0], args=(contour_points, masks, im, scat, fig), constraints=constraints, method=method)
         plt.ioff()
         plt.show()
         projection_error = error_function_mask(solution.x, contour_points, masks)
