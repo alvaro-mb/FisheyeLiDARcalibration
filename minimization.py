@@ -74,7 +74,7 @@ def error_function(unknowns, *data):
     error = np.mean(np.linalg.norm(image.eqr_coord - image2.eqr_coord, axis=0))
     # error = np.mean(np.linalg.norm(image.norm_coord.T - corners2d, axis=1))
     # error = np.sum(np.linalg.norm(image.norm_coord.T - corners2d, axis=1))
-    print(error)
+    # print(error)
     # print(unknowns)
     return error
 

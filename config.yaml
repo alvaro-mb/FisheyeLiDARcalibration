@@ -1,10 +1,10 @@
 # Description: Configuration file for the experiment
 
 # Experiment data
-images_path: "simulation/images2"  #"demo/images"
+images_path: "simulation/image"  #"demo/images"
 spherical: True # True if you are using spherical images, False if you are using fisheye images
-pointclouds_path: "simulation/pointclouds2"  #"demo/pointclouds"
-ground_truth_file: "simulation/transforms/T2.csv"  # csv file with the ground truth transformation
+pointclouds_path: "simulation/pointcloud"  #"demo/pointclouds"
+ground_truth_file: "simulation/transforms/T1.csv"  # csv file with the ground truth transformation
 
 # Calibration data
 calibration_file: "demo/calib_results.txt"
@@ -41,10 +41,10 @@ show_segmented_plane: True # Show segmentated plane in the image
 
 # Save data results
 save_path: "results"  # Path to save the results. The folder is created if it does not exist.
-results_file: "results_simulation_kabsch2"  # Name of the results file
+results_file: "results_simulation_minimization1_2"  # Name of the results file
 save_results: True  # Save results from calibration (rotation and translation) in a .csv file
 save_data_path: "corners"  # Path to save pixel or corners values
-save_data_file: "corners_simulation2"  # Name of the data file
+save_data_file: "corners_simulation1"  # Name of the data file
 save_data: True  # Save corners data in a .csv file
 
 outputs_file: "outputs"  # Name of the outputs file

@@ -39,8 +39,8 @@ if __name__ == "__main__":
             
             if params.simulated:
                 plt.imshow(image)
-                pointcloud.define_transform_matrix(rotation, translation)
-                pointcloud.get_spherical_coord()
+                # pointcloud.define_transform_matrix(rotation, translation)
+                pointcloud.get_spherical_coord(False)
                 xs, ys, zs = pointcloud.spherical_coord[0], pointcloud.spherical_coord[1], pointcloud.spherical_coord[2]
                 long = np.arctan2(ys, xs)
                 lat = np.arctan2(zs, np.linalg.norm([xs, ys], axis=0))
