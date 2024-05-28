@@ -84,7 +84,7 @@ class Image:
         self.eqr_coord = None
         self.norm_coord = None
         self.sphere_coord = None
-        self.fisheye_proj = None
+        self.fisheye_coord = None
         if spherical_image:
             self.eqr_image = self.image
         # elif self.xyxy is not None:

@@ -39,7 +39,7 @@ if __name__ == "__main__":
     #     sam.to(device=params.device)
     #     mask = SamPredictor(sam)
     
-    # indexes = list(range(1))
+    # indexes = list(range(2))
     indexes = list(range(len(imgs)))
 
     rotations = np.zeros((len(indexes), 3))

@@ -38,9 +38,7 @@ if __name__ == "__main__":
     # image.norm_coord = camera_norm_corners
     # image.norm2image(equirect=True)
     # camera_corners = image.eqr_coord
-    camera_corners = corners[:, 6:]
-    camera_corners[:, 0] = - camera_corners[:, 0]
-    camera_corners[:, 1] = 2 * camera_corners[:, 1]
+    image_corners = corners[:, 6:]
 
     if params.simulated:
         with open(params.ground_truth_file, newline='') as f:
@@ -49,10 +47,19 @@ if __name__ == "__main__":
             real_rotation = np.array([float(i) for i in next(reader)])
             real_translation = np.array([float(i) for i in next(reader)])
 
+        # Comment and uncomment for adding initial transformation to the pointclouds
+        pcloud = PointCloud(lidar_corners)
+        pcloud.define_transform_matrix(real_rotation, real_translation)
+        inverse_transform_matrix = np.linalg.inv(pcloud.transform_matrix)
+        points = np.vstack([pcloud.lidar3d.T, np.ones(pcloud.lidar3d.shape[0])])
+        lidar_corners = np.vstack(np.dot(inverse_transform_matrix, points)[0:3, :].T)
+
     # Get rotation and translation between camera and lidar reference systems
     methods = ['Nelder-Mead', 'Powell', 'CG', 'BFGS', 'L-BFGS-B', 'TNC', 'COBYLA', 'SLSQP', 'trust-constr']
     for method in methods:
-        solution, mean_error = get_transformation_parameters(lidar_corners, camera_corners, method, plot=False)
+        solution, mean_error = get_transformation_parameters(lidar_corners, image_corners, method, plot=False)
+        # solution = np.array([-0.00034896, -0.00112833, 0.00380118, -0.07897686, -0.01332086, 0.15728252])
+        # mean_error = 0.29163186959176407
         rotation, translation = solution[:3], solution[3:]
         print('Method: ', method)
         print('Mean error: ', mean_error)
@@ -75,7 +82,7 @@ if __name__ == "__main__":
                 if params.simulated:
                     rotationerrors = rotation - real_rotation
                     csvwriter.writerow(['RotationErrors', rotationerrors[0], rotationerrors[1], rotationerrors[2]])
-                    rotationerror = np.mean(rotationerrors)
+                    rotationerror = np.mean(np.abs(rotationerrors))
                     csvwriter.writerow(['RotationError', rotationerror])
                     translationerrors = translation - real_translation
                     csvwriter.writerow(['TranslationErrors', translationerrors[0], translationerrors[1], translationerrors[2]])
@@ -85,53 +92,59 @@ if __name__ == "__main__":
                 # csvwriter.writerow(['StdError', std_error])
             # np.savetxt(params.save_path + '/' + params.results_file, results, delimiter=",")
 
-    # Range in meters for the lidar points
-    d_range = (0, 80)
+        # Range in meters for the lidar points
+        d_range = (0, 80)
 
-    if params.show_lidar_onto_image > 0:
-        n = 4 * len(params.planes_sizes)
-        if params.simulated:
-            for i in range(1):#range(len(pcls)):
-                pointcloud = PointCloud(pcls[i])
-                image = mpimg.imread(imgs[i])
-                plt.imshow(image)
-                pointcloud.define_transform_matrix(rotation, translation)
-                pointcloud.get_spherical_coord()
-                xs, ys, zs = pointcloud.spherical_coord[0], pointcloud.spherical_coord[1], pointcloud.spherical_coord[2]
-                long = np.arctan2(ys, xs)
-                lat = np.arctan2(zs, np.linalg.norm([xs, ys], axis=0))
-                x = (- long) * image.shape[1] / (2*np.pi) + image.shape[1] / 2
-                y = (-lat) * image.shape[0] / np.pi + image.shape[0] / 2
-                plt.scatter(x, y, s=0.1, c=pointcloud.reflectivity, cmap='jet')
+        if params.show_lidar_onto_image > 0:
+            n = 4 * len(params.planes_sizes)
+            if params.simulated:
+                for i in range(1):#range(len(pcls)):
+                    pointcloud = PointCloud(pcls[i])
+                    image = mpimg.imread(imgs[i])
+                    plt.imshow(image)
+                    pointcloud.define_transform_matrix(rotation, translation)
+                    pointcloud.get_spherical_coord(False)
+                    xs, ys, zs = pointcloud.spherical_coord[0], pointcloud.spherical_coord[1], pointcloud.spherical_coord[2]
+                    long = np.arctan2(ys, xs)
+                    lat = np.arctan2(zs, np.linalg.norm([xs, ys], axis=0))
+                    x = (- long) * image.shape[1] / (2*np.pi) + image.shape[1] / 2 - 0.5  # -0.5 to center the points
+                    y = (-lat) * image.shape[0] / np.pi + image.shape[0] / 2 - 0.5 # -0.5 to center the points
+                    plt.scatter(x, y, s=3, c=pointcloud.reflectivity, cmap='jet')
 
-                # icorners = PointCloud(camera_corners[0 + n*i:n + n*i])
-                # icorners.get_spherical_coord(lidar2camera=False)
-                # xs, ys, zs = icorners.spherical_coord[0], icorners.spherical_coord[1], icorners.spherical_coord[2]
-                # long = np.arctan2(ys, xs)
-                # lat = np.arctan2(zs, np.linalg.norm([xs, ys], axis=0))
-                # x = (- long) * image.shape[1] / (2*np.pi) + image.shape[1] / 2
-                # y = (-lat) * image.shape[0] / np.pi + image.shape[0] / 2
-                # plt.scatter(x, y, s=10, c='r')
-                
-                # pcorners = PointCloud(lidar_corners[0 + n*i:n + n*i])
-                # pcorners.define_transform_matrix(rotation, translation)
-                # pcorners.get_spherical_coord()
-                # xs, ys, zs = pcorners.spherical_coord[0], pcorners.spherical_coord[1], pcorners.spherical_coord[2]
-                # long = np.arctan2(ys, xs)
-                # lat = np.arctan2(zs, np.linalg.norm([xs, ys], axis=0))
-                # x = (- long) * image.shape[1] / (2*np.pi) + image.shape[1] / 2
-                # y = (-lat) * image.shape[0] / np.pi + image.shape[0] / 2
-                # plt.scatter(x, y, s=10, c='g')
-                plt.show()
+                    # icorners = PointCloud(camera_corners[0 + n*i:n + n*i])
+                    # icorners.get_spherical_coord(lidar2camera=False)
+                    # xs, ys, zs = icorners.spherical_coord[0], icorners.spherical_coord[1], icorners.spherical_coord[2]
+                    # long = np.arctan2(ys, xs)
+                    # lat = np.arctan2(zs, np.linalg.norm([xs, ys], axis=0))
+                    # x = (- long) * image.shape[1] / (2*np.pi) + image.shape[1] / 2
+                    # y = (-lat) * image.shape[0] / np.pi + image.shape[0] / 2
+                    n = len(params.planes_sizes) * 4
+                    x = image_corners[i*n:i*n+n, 0] - 0.5
+                    y = image_corners[i*n:i*n+n, 1] - 0.5
+                    plt.scatter(x, y, s=10, c='r')
+                    
+                    pcorners = PointCloud(lidar_corners[0 + n*i:n + n*i])
+                    pcorners.define_transform_matrix(rotation, translation)
+                    pcorners.get_spherical_coord()
+                    xs, ys, zs = pcorners.spherical_coord[0], pcorners.spherical_coord[1], pcorners.spherical_coord[2]
+                    long = np.arctan2(ys, xs)
+                    lat = np.arctan2(zs, np.linalg.norm([xs, ys], axis=0))
+                    x = (- long) * image.shape[1] / (2*np.pi) + image.shape[1] / 2 - 0.5  # -0.5 to center the points
+                    y = (-lat) * image.shape[0] / np.pi + image.shape[0] / 2 - 0.5  # -0.5 to center the points
+                    # print('image corners: ', camera_corners - 0.5)
+                    # print('projection: ', x, '\n', y)
+                    # print('mean pixel error: ', np.mean(np.linalg.norm(np.array([x, y]).T + 0.5 - camera_corners, axis=1)))
+                    plt.scatter(x, y, s=10, c='g')
+                    plt.show()
 
-        else:
-            for points, image, i in zip(pcls, imgs, range(len(pcls))):
-                points = load_pc(points)
-                image = mpimg.imread(image)
-                pointcloud = Visualizer(points, image)
-                pointcloud.define_transform_matrix(rotation, translation)
-                pointcloud.lidar_corners = lidar_corners[0 + n*i:n + n*i]
-                pointcloud.camera_corners = camera_corners[0 + n*i:n + n*i]
-                pointcloud.lidar_onto_image(cam_model=cam_model, fisheye=params.show_lidar_onto_image - 1, d_range=d_range)
-                plt.show()
+            else:
+                for points, image, i in zip(pcls, imgs, range(len(pcls))):
+                    points = load_pc(points)
+                    image = mpimg.imread(image)
+                    pointcloud = Visualizer(points, image)
+                    pointcloud.define_transform_matrix(rotation, translation)
+                    pointcloud.lidar_corners = lidar_corners[0 + n*i:n + n*i]
+                    pointcloud.camera_corners = image_corners[0 + n*i:n + n*i]
+                    pointcloud.lidar_onto_image(cam_model=cam_model, fisheye=params.show_lidar_onto_image - 1, d_range=d_range)
+                    plt.show()
     

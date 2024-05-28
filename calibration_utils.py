@@ -287,6 +287,8 @@ def select_lidar_plane(visualizer, equirect_lidar, plane):
 
     # Select plane points from plotted lidar
     fig, ax = plt.subplots(1)
+    mng = plt.get_current_fig_manager()
+    mng.resize(*mng.window.maxsize())
     ax.imshow(np.zeros((equirect_lidar.eqr_image.shape[0], equirect_lidar.eqr_image.shape[1])))
     ax.set_title('Select plane number ' + str(plane.i))
     pts = ax.scatter(x=equirect_lidar.eqr_coord[0], y=equirect_lidar.eqr_coord[1], c=equirect_lidar.points_values,
@@ -312,6 +314,8 @@ def select_image_plane(image, plane):
     """
     # Plot fisheye image and get 2D calibration pattern corners manually
     if params.corner_detection_mode == "manual":
+        mng = plt.get_current_fig_manager()
+        mng.resize(*mng.window.maxsize())
         plt.imshow(image)
         print("Zoom in and select 4 checkerboard corners: top left, top right, bottom left, bottom right from plane " + str(plane.i) + " of the image")
         plt.title("Zoom in and select 4 checkerboard corners: top left, top right, bottom left, bottom right from plane " + str(plane.i) + " of the image")
@@ -330,6 +334,8 @@ def select_image_plane(image, plane):
         
         # Plot fisheye image and click on the plane to get corners
         fig, ax = plt.subplots()
+        mng = plt.get_current_fig_manager()
+        mng.resize(*mng.window.maxsize())
         ax.imshow(image)
         
         # Define Segment Anything parameters
@@ -548,6 +554,7 @@ def corners2d_to_3d(image2d_points, lidar_corners3d, image, plane, camera_model=
         ys = np.cos(lat) * np.sin(long)
         zs = np.sin(lat)        
         image3d_sphere = np.vstack([xs, ys, zs])
+        image_points = image2d_points
 
         # long = np.arctan2(ys, xs)
         # lat = np.arctan2(zs, np.linalg.norm([xs, ys], axis=0))
@@ -560,9 +567,15 @@ def corners2d_to_3d(image2d_points, lidar_corners3d, image, plane, camera_model=
     else:
         assert camera_model is not None, "camera_model must be provided in fisheye mode"
         fish_image = Image(image, cam_model=camera_model)
-        fish_image.spherical_proj = np.flip(image2d_points.T, axis=0)
+        fish_image.fisheye_coord = np.flip(image2d_points.T, axis=0)
         fish_image.fisheye2sphere()
         image3d_sphere = fish_image.sphere_coord
+        fish_image.sphere2equirect()
+        fish_image.norm2image(equirect=True)
+        image_points = fish_image.eqr_coord.T
+    
+    # if there is a value in image3d_sphere that is 0, replace it with 1e-10 to avoid division by zero
+    image3d_sphere[image3d_sphere == 0] = 1e-10
 
     # Get 3D corners coordinates from camera reference system
     # Change initial solutions if needed, remain x positive to get the plane in front of the camera
@@ -682,7 +695,7 @@ def get_camera_corners(image, camera_model, plane, lidar_corners3d, input_data, 
             plt.show()
             plt.close()
 
-    camera_corners3d, image_points = corners2d_to_3d(image2d_points, lidar_corners3d, image, plane, camera_model)
+    camera_corners3d, image2d_points = corners2d_to_3d(image2d_points + 0.5, lidar_corners3d, image, plane, camera_model)
 
     # # plot 3d camera_corners3d. Draw lines between corners
     # plt.figure()
@@ -717,7 +730,7 @@ def get_camera_corners(image, camera_model, plane, lidar_corners3d, input_data, 
     # plt.scatter(x, y, s=10, c='r')
     # plt.show()
     
-    return camera_corners3d, image_points.T, mask
+    return camera_corners3d, image2d_points, mask
 
 
 def get_rotation_and_translation(camera_corners3d, lidar_corners3d, image_corners, pointcloud):
@@ -737,11 +750,15 @@ def get_rotation_and_translation(camera_corners3d, lidar_corners3d, image_corner
     # Estimate transform matrix between corners
     # print('\n3D camera corners coordinates: \n', camera_corners3d,
     #       '\n\n 3D lidar corners coordinates: \n', lidar_corners3d)
+
     pointcloud.estimate_transform_matrix(camera_corners3d, lidar_corners3d)
+    # pointcloud.define_transform_matrix(np.array([3, -3, 3]), np.array([0.11, -0.04, 0.27]))
     print('\nTransformation matrix: \n', pointcloud.transform_matrix)
+
     # print lidar_corners3d transformed to camera reference system
     lidar_corners3d_transformed = np.matmul(pointcloud.transform_matrix, np.vstack((lidar_corners3d.T, np.ones((1, lidar_corners3d.shape[0]))))).T[:, :3]
     # print('\nLidar corners coordinates transformed to camera reference system: \n', lidar_corners3d_transformed)
+
     # Get error between transformed lidar corners and camera corners
     err = np.linalg.norm(lidar_corners3d_transformed - camera_corners3d, axis=1)
     mean_error = np.mean(err)
@@ -751,7 +768,9 @@ def get_rotation_and_translation(camera_corners3d, lidar_corners3d, image_corner
     image = Image(pointcloud.image, fov=185, spherical_image=params.spherical)
     image.sphere_coord = lidar_corners3d_transformed.T
     image.sphere2equirect()
-    pixels_error = np.linalg.norm(image.norm_coord.T - image_corners, axis=1)
+    image.norm2image(equirect=True)
+    # print(image.eqr_coord.T, '\n', image_corners)
+    pixels_error = np.linalg.norm(image.eqr_coord.T - image_corners, axis=1)
     mean_pixel_error = np.mean(pixels_error)
 
     euler = R.from_matrix(pointcloud.transform_matrix[:3, :3]).as_euler('xyz', degrees=True)

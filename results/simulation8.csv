@@ -1,0 +1,8 @@
+Rotation,-1.0,4.000000000000005,2.5
+Translation,-0.05,0.02,0.24
+MeanError,0.013736279847454264
+MeanPixelError,0.5093493075462151
+RotationErrors,0.0,5.329070518200751e-15,0.0
+RotationError,1.7763568394002505e-15
+TranslationErrors,0.0,0.0,0.0
+TranslationError,0.0

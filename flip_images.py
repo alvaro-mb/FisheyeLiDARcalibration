@@ -13,7 +13,7 @@ images_path = params.images_path
 images = sorted(glob(os.path.join(images_path, "*")))
 
 # Loop for flipping images
-for image in images:
+for i, image in enumerate(images):
     # Read image
     img = mpimg.imread(image)
     # Flip image
