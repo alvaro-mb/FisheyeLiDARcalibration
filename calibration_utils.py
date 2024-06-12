@@ -752,7 +752,7 @@ def get_rotation_and_translation(camera_corners3d, lidar_corners3d, image_corner
     #       '\n\n 3D lidar corners coordinates: \n', lidar_corners3d)
 
     pointcloud.estimate_transform_matrix(camera_corners3d, lidar_corners3d)
-    # pointcloud.define_transform_matrix(np.array([3, -3, 3]), np.array([0.11, -0.04, 0.27]))
+    # pointcloud.define_transform_matrix(np.array([0, 0, 0]), np.array([0.06, 0.11, -0.23]))
     print('\nTransformation matrix: \n', pointcloud.transform_matrix)
 
     # print lidar_corners3d transformed to camera reference system

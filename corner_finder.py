@@ -84,6 +84,7 @@ if __name__ == "__main__":
             
             init_planes_points[i][idplane - 1] = init_plane_points
             selections[i][idplane - 1] = selection_data
+            
             idplane += 1
 
     camera_corners2d = []
