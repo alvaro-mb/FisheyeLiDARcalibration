@@ -78,9 +78,10 @@ if __name__ == "__main__":
         idplane = 1
         for plane_size in planes_sizes:
             plane = Plane(plane_size[0], plane_size[1], idplane)
-            
+                
             init_plane_points = select_lidar_plane(vis, equirect_lidar, plane)
             selection_data = select_image_plane(image, plane)
+            # print(np.where(selection_data == 1)[0].shape)
             
             init_planes_points[i][idplane - 1] = init_plane_points
             selections[i][idplane - 1] = selection_data
@@ -104,6 +105,7 @@ if __name__ == "__main__":
             plane = Plane(plane_size[0], plane_size[1], idplane)
             init_plane_points = init_planes_points[j][idplane - 1]
             l_corners = get_lidar_corners(pointclouds_points[j], init_plane_points, plane)
+            # print(np.amax(selections[j][idplane - 1]))
             c_corners, c_corners2d, _ = get_camera_corners(image, cam_model, plane, l_corners, selections[j][idplane - 1], mask)
             camera_corners.extend(c_corners)
             camera_corners2d.extend(c_corners2d)
@@ -113,8 +115,6 @@ if __name__ == "__main__":
     camera_corners2d = np.array(camera_corners2d)  
     camera_corners = np.array(camera_corners)
     lidar_corners = np.array(lidar_corners)
-
-    kabsch = True
 
     if params.save_data:
         if not os.path.exists(params.save_data_path):

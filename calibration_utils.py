@@ -277,29 +277,45 @@ def select_lidar_plane(visualizer, equirect_lidar, plane):
         :parar equirect_lidar: Image object containing the fisheye image and the lidar point cloud
         :param plane:          Plane object containing dimension information of the plane
     
-        :return: array with 3d lidar filtered points
         :return: array of initial plane points.
     """
 
     # Plot equirectangular image and point cloud
     equirect_lidar.sphere_coord = visualizer.spherical_coord
     equirect_lidar.lidar_projection(pixel_points=0)
+    
+    if params.simulated:
+        # cluster points in groups
+        kmeans = KMeans(n_clusters=len(params.planes_sizes), random_state=0).fit(equirect_lidar.eqr_coord.T)
+        
+        # get the cluster with the most points if plane is 0, the second most if plane is 1, etc
+        counts = np.bincount(kmeans.labels_)
+        sorted_indices = np.argsort(counts)[::-1]
 
-    # Select plane points from plotted lidar
-    fig, ax = plt.subplots(1)
-    mng = plt.get_current_fig_manager()
-    mng.resize(*mng.window.maxsize())
-    ax.imshow(np.zeros((equirect_lidar.eqr_image.shape[0], equirect_lidar.eqr_image.shape[1])))
-    ax.set_title('Select plane number ' + str(plane.i))
-    pts = ax.scatter(x=equirect_lidar.eqr_coord[0], y=equirect_lidar.eqr_coord[1], c=equirect_lidar.points_values,
-                     s=0.05, cmap=visualizer.cmap)
-    plane_point = np.round(plt.ginput(timeout=0))[0]
-    pixel_window = 6
-    plane_index_points = np.where((equirect_lidar.eqr_coord[0] > plane_point[0] - pixel_window ) &
-                                  (equirect_lidar.eqr_coord[0] < plane_point[0] + pixel_window ) &
-                                  (equirect_lidar.eqr_coord[1] > plane_point[1] - pixel_window ) &
-                                  (equirect_lidar.eqr_coord[1] < plane_point[1] + pixel_window ))[0]
-    plt.close(fig)
+        # Create a mapping from old labels to new labels
+        mapping = np.zeros_like(sorted_indices)
+        mapping[sorted_indices] = np.arange(len(sorted_indices))
+
+        # Apply the mapping to the labels
+        new_labels = mapping[kmeans.labels_]
+        plane_index_points = np.where(new_labels == plane.i - 1)[0]
+    
+    else:
+        # Select plane points from plotted lidar
+        fig, ax = plt.subplots(1)
+        mng = plt.get_current_fig_manager()
+        mng.resize(*mng.window.maxsize())
+        ax.imshow(np.zeros((equirect_lidar.eqr_image.shape[0], equirect_lidar.eqr_image.shape[1])))
+        ax.set_title('Select plane number ' + str(plane.i))
+        pts = ax.scatter(x=equirect_lidar.eqr_coord[0], y=equirect_lidar.eqr_coord[1], c=equirect_lidar.points_values,
+                        s=0.05, cmap=visualizer.cmap)
+        plane_point = np.round(plt.ginput(timeout=0))[0]
+        pixel_window = 6
+        plane_index_points = np.where((equirect_lidar.eqr_coord[0] > plane_point[0] - pixel_window ) &
+                                    (equirect_lidar.eqr_coord[0] < plane_point[0] + pixel_window ) &
+                                    (equirect_lidar.eqr_coord[1] > plane_point[1] - pixel_window ) &
+                                    (equirect_lidar.eqr_coord[1] < plane_point[1] + pixel_window ))[0]
+        plt.close(fig)
     
     return plane_index_points
 
@@ -332,33 +348,45 @@ def select_image_plane(image, plane):
         global input_box
         input_box = None
         
-        # Plot fisheye image and click on the plane to get corners
-        fig, ax = plt.subplots()
-        mng = plt.get_current_fig_manager()
-        mng.resize(*mng.window.maxsize())
-        ax.imshow(image)
-        
-        # Define Segment Anything parameters
-        if params.selection_mode == "points":
-            plt.title("Select points from the plane " + str(plane.i) + " to segment it. Press a key to continue")
-            point = []
-            while True:
-                p = plt.ginput(1, timeout=0)
-                if not p:
-                    plt.close()
-                    break  # Press a key to continue
-                point.append(p[0])
-            point = np.round(point).astype(int)
-            input_point = np.array(point)
+        if params.simulated:
+            mask = np.zeros((image.shape[0], image.shape[1]))
+            colour = np.array(params.planes_colours[plane.i - 1])
+            colour = colour / np.amax(colour)
+            # threshold the image coordinates in 1
+            binarized_image = np.zeros((image.shape[0], image.shape[1], 4))
+            binarized_image[np.where(image > 1)] = 1
+            # get the coordinates of the points in the images which are equal to colour
+            mask[np.where((binarized_image[:, :, 0] == colour[0]) & (binarized_image[:, :, 1] == colour[1]) & (binarized_image[:, :, 2] == colour[2]))] = 1
+            return mask.astype(np.uint8)
             
-            return input_point
+        else:
+            # Plot fisheye image and click on the plane to get corners
+            fig, ax = plt.subplots()
+            mng = plt.get_current_fig_manager()
+            mng.resize(*mng.window.maxsize())
+            ax.imshow(image)
             
-        elif params.selection_mode == "box":
-            plt.title("Draw a box around the plane " + str(plane.i) + " to segment it")
-            rs = RectangleSelector(ax, onselect=on_release, useblit=True, button=[1], minspanx=5, minspany=5)
-            plt.show()
-        
-            return input_box
+            # Define Segment Anything parameters
+            if params.selection_mode == "points":
+                plt.title("Select points from the plane " + str(plane.i) + " to segment it. Press a key to continue")
+                point = []
+                while True:
+                    p = plt.ginput(1, timeout=0)
+                    if not p:
+                        plt.close()
+                        break  # Press a key to continue
+                    point.append(p[0])
+                point = np.round(point).astype(int)
+                input_point = np.array(point)
+                
+                return input_point
+                
+            elif params.selection_mode == "box":
+                plt.title("Draw a box around the plane " + str(plane.i) + " to segment it")
+                rs = RectangleSelector(ax, onselect=on_release, useblit=True, button=[1], minspanx=5, minspany=5)
+                plt.show()
+            
+                return input_box
             
 
 def reorder_corners(corners):
@@ -394,14 +422,17 @@ def reorder_corners(corners):
 
 def get_lidar_corners(points, plane_index_points, plane):
     """ Get the lidar 3d corners from the initial plane points.
-        :param points:              array with 3d lidar filtered points
-        :param plane_index_poiints: array of initial plane points.
-        :param plane:               Plane object containing dimension information of the plane
+        :param points:             array with 3d lidar filtered points
+        :param plane_index_points: array of initial plane points.
+        :param plane:              Plane object containing dimension information of the plane
         
         :return: array with 3d lidar corners
     """
-    # Find plane points from an initial seed
-    plane_points = get_plane_points(points[:, :3], plane_index_points)
+    if params.simulated:
+        plane_points = points[plane_index_points]
+    else:
+        # Find plane points from an initial seed
+        plane_points = get_plane_points(points[:, :3], plane_index_points)
 
     # Find corners from plane points founded with corner_finder
     lidar_corners3d = np.asarray(corner_finder(plane_points, plane))
@@ -605,8 +636,12 @@ def get_camera_corners(image, camera_model, plane, lidar_corners3d, input_data, 
         image2d_points = input_data
         
     elif params.corner_detection_mode == "automatic":
-        mask, score, input_point, input_label = get_plane_mask(image, input_data, mask_predict)
-            
+        if params.simulated:
+            mask = input_data
+            score = [1.0]
+        else:
+            mask, score, input_point, input_label = get_plane_mask(image, input_data, mask_predict)
+        
         # Find the contours of the mask image
         contours, hierarchy = cv2.findContours(mask, cv2.RETR_LIST, cv2.CHAIN_APPROX_NONE)
         contour_points = []
@@ -686,7 +721,7 @@ def get_camera_corners(image, camera_model, plane, lidar_corners3d, input_data, 
             plt.imshow(image)
             show_mask(m, plt.gca(), random_color=True)
             # Show clicked points if the mask is selected by points
-            if params.selection_mode == "points":
+            if params.selection_mode == "points" and params.simulated != True:
                 show_points(input_point, input_label, plt.gca())
             # Plot corners 
             plt.scatter(image2d_points[:, 0], image2d_points[:, 1], s=10, c="#fa2a00")        

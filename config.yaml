@@ -4,13 +4,15 @@
 images_path: "simulation/images11"  #"demo/images"
 spherical: True # True if you are using spherical images, False if you are using fisheye images
 pointclouds_path: "simulation/pointclouds11"  #"demo/pointclouds"
-ground_truth_file: "simulation/transforms/T3.csv"  # csv file with the ground truth transformation
+ground_truth_file: "simulation/transforms/T7.csv"  # csv file with the ground truth transformation
 
 # Calibration data
 calibration_file: "demo/calib_results.txt"
 
 # Modify the list of planes if you used more or less planes
 planes_sizes: [[1.89, 1.706], [0.594, 0.412]]  # Width and height of planes in meters
+# Only for simulated = True
+planes_colours: [[0, 155, 155], [148, 0, 148]]  # Colours of the planes in rgb format
 
 # Experiment parameters:
 lidar_vertical_resolution: 0.3515625  # Vertical resolution of the LiDAR in degrees
@@ -41,10 +43,10 @@ show_segmented_plane: False # Show segmentated plane in the image
 
 # Save data results
 save_path: "results"  # Path to save the results. The folder is created if it does not exist.
-results_file: "simulation11_minimization"  # Name of the results file
+results_file: "simulation_automatic1_minimization"  # Name of the results file
 save_results: True  # Save results from calibration (rotation and translation) in a .csv file
 save_data_path: "corners"  # Path to save pixel or corners values
-save_data_file: "simulation11"  # Name of the data file
+save_data_file: "simulation_automatic1"  # Name of the data file
 save_data: True  # Save corners data in a .csv file
 
 outputs_file: "outputs"  # Name of the outputs file

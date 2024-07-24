@@ -17,6 +17,7 @@ class PathParameters:
 class ExperimentParameters:
     def __init__(self):
         self.planes_sizes = param_data['planes_sizes']
+        self.planes_colours = param_data['planes_colours']
         self.lidar_vertical_resolution = param_data['lidar_vertical_resolution']
         self.lidar_horizontal_resolution = param_data['lidar_horizontal_resolution']
         self.show_lidar_onto_image = param_data['show_lidar_onto_image']
