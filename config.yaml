@@ -1,9 +1,9 @@
 # Description: Configuration file for the experiment
 
 # Experiment data
-images_path: "simulation/images11"  #"demo/images"
+images_path: "simulation/images"  #"demo/images"
 spherical: True # True if you are using spherical images, False if you are using fisheye images
-pointclouds_path: "simulation/pointclouds11"  #"demo/pointclouds"
+pointclouds_path: "simulation/pointclouds"  #"demo/pointclouds"
 ground_truth_file: "simulation/transforms/T7.csv"  # csv file with the ground truth transformation
 
 # Calibration data
